@@ -1,11 +1,38 @@
-use std::error::Error;
-
 use clap::{App, Arg};
+use std::error::Error;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 
 type MyResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn run(config: Config) -> MyResult<()> {
-    dbg!(config);
+    for filename in config.files {
+        let mut line_num = 1;
+        match open(&filename) {
+            Err(err) => eprintln!("Failed to open {}: {}", filename, err),
+            Ok(handle) => handle.lines().for_each(|line| {
+                if config.number_lines {
+                    if let Ok(l) = &line {
+                        println!("{:>6}\t{}", line_num, l);
+                        line_num += 1;
+                    }
+                } else if config.number_nonblank_lines {
+                    if let Ok(l) = &line {
+                        if l.is_empty() {
+                            println!("{}", l)
+                        } else {
+                            println!("{:>6}\t{}", line_num, l);
+                            line_num += 1;
+                        }
+                    }
+                } else {
+                    if let Ok(l) = &line {
+                        println!("{}", &l);
+                    }
+                }
+            }),
+        }
+    }
     Ok(())
 }
 
@@ -25,34 +52,36 @@ pub fn get_args() -> MyResult<Config> {
             Arg::with_name("file")
                 .value_name("FILE")
                 .help("Input file(s)")
-                .default_value("-")
-                .min_values(1),
+                .multiple(true)
+                .default_value("-"),
         )
         .arg(
             Arg::with_name("number")
-                .conflicts_with("number_nonblank")
                 .short("n")
                 .long("number")
                 .help("Number lines")
-                .takes_value(false),
+                .takes_value(false)
+                .conflicts_with("number_nonblank"),
         )
         .arg(
             Arg::with_name("number_nonblank")
                 .short("b")
                 .long("number-nonblank")
-                .help("Number nonblank lines"),
+                .help("Number nonblank lines")
+                .takes_value(false),
         )
         .get_matches();
 
     Ok(Config {
-        files: if matches.is_present("file") {
-            matches.values_of_lossy("file").unwrap()
-        } else {
-            vec!["-".to_string()]
-        },
+        files: matches.values_of_lossy("file").unwrap(),
         number_lines: matches.is_present("number"),
-        number_nonblank_lines: matches.is_present("number-nonblank"),
+        number_nonblank_lines: matches.is_present("number_nonblank"),
     })
 }
 
-// pub fn get_args() -> My
+fn open(filename: &str) -> MyResult<Box<dyn BufRead>> {
+    match filename {
+        "-" => Ok(Box::new(BufReader::new(io::stdin()))),
+        _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
+    }
+}
