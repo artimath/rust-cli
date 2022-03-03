@@ -10,23 +10,23 @@ pub fn run(config: Config) -> MyResult<()> {
         let mut line_num = 1;
         match open(&filename) {
             Err(err) => eprintln!("Failed to open {}: {}", filename, err),
-            Ok(handle) => handle.lines().for_each(|line| {
+            Ok(handle) => handle.lines().for_each(|line_result| {
                 if config.number_lines {
-                    if let Ok(l) = &line {
-                        println!("{:>6}\t{}", line_num, l);
+                    if let Ok(line) = &line_result {
+                        println!("{:>6}\t{}", line_num, line);
                         line_num += 1;
                     }
                 } else if config.number_nonblank_lines {
-                    if let Ok(l) = &line {
-                        if l.is_empty() {
-                            println!("{}", l)
+                    if let Ok(line) = &line_result {
+                        if line.is_empty() {
+                            println!("{}", line)
                         } else {
-                            println!("{:>6}\t{}", line_num, l);
+                            println!("{:>6}\t{}", line_num, line);
                             line_num += 1;
                         }
                     }
                 } else {
-                    if let Ok(l) = &line {
+                    if let Ok(l) = &line_result {
                         println!("{}", &l);
                     }
                 }
